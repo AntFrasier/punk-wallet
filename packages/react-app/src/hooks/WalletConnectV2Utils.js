@@ -28,6 +28,7 @@ export default function useInitialization() {
     try {
       await createWeb3Wallet();
       setInitialized(true);
+      console.log("befor session_proposal", web3wallet)
     } catch (err) {
       console.log("Error for initializing", err);
     }
