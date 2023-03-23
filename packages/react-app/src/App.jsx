@@ -1,7 +1,7 @@
 import { CaretUpOutlined, ScanOutlined, SendOutlined, ReloadOutlined } from "@ant-design/icons";
 import { JsonRpcProvider, StaticJsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { formatEther, parseEther } from "@ethersproject/units";
-import WalletConnectProvider from "@walletconnect/web3-provider";
+import WalletConnectProvider from "@walletconnect/web3-provider"; //this should still be ok
 import { Alert, Button, Col, Row, Select, Spin, Input, Modal, notification } from "antd";
 import "antd/dist/antd.css";
 import { useUserAddress } from "eth-hooks";
@@ -28,9 +28,18 @@ import { INFURA_ID, NETWORK, NETWORKS } from "./constants";
 import { Transactor } from "./helpers";
 import { useBalance, useExchangePrice, useGasPrice, useLocalStorage, usePoller, useUserProvider } from "./hooks";
 
-import WalletConnect from "@walletconnect/client";
+import WalletConnect from "@walletconnect/client"; 
 
 import { TransactionManager } from "./helpers/TransactionManager";
+
+
+
+//************************** */
+
+import useInitialization, { web3wallet, web3WalletPair } from "./hooks/WalletConnectV2Utils";
+import { getSdkError } from "@walletconnect/utils";
+import { indexOf } from "./contracts/contracts";
+//************************** */
 
 const { confirm } = Modal;
 
@@ -89,12 +98,12 @@ let scanner;
 /*
   Web3 modal helps us "connect" external wallets:
 */
-const web3Modal = new Web3Modal({
+const web3Modal = new Web3Modal({ //this should still be compatible whith wallet connect v2
   // network: "mainnet", // optional
   cacheProvider: true, // optional
   providerOptions: {
-    walletconnect: {
-      package: WalletConnectProvider, // required
+    walletconnect: { //
+      package: WalletConnectProvider, // required // ?? this should still be compatible whith wallet connect v2
       options: {
         infuraId: INFURA_ID,
         rpc: {
@@ -134,6 +143,9 @@ function App(props) {
     }
     waitForNetwork()
   },[ localProvider ])*/
+  /*********************************************************** */
+  const wcV2Initialized = useInitialization(); // initialisation for walletconnectV2
+  console.log( "wcV2Initialized", wcV2Initialized)
 
   const [checkingBalances, setCheckingBalances] = useState();
   // a function to check your balance on every network and switch networks if found...
@@ -182,7 +194,7 @@ function App(props) {
       window.location.reload();
     }, 1);
   };
-  /*
+   /*
   // track an extra eth price to display USD for Optimism?
   const ethprice = useExchangePrice({
     name: "ethereum",
@@ -223,19 +235,154 @@ function App(props) {
 
   const balance = yourLocalBalance && formatEther(yourLocalBalance);
 
-  // if you don't have any money, scan the other networks for money
+    // if you don't have any money, scan the other networks for money
   // lol this poller is a bad idea why does it keep
   /*usePoller(() => {
     if (!cachedNetwork) {
       if (balance == 0) {
         checkBalances(address);
-      }
+         }
     }
   }, 7777);*/
 
-  const connectWallet = sessionDetails => {
-    console.log(" 📡 Connecting to Wallet Connect....", sessionDetails);
+ //**************************************************** */
+ // https://github.com/WalletConnect/react-native-examples/blob/main/wallets/web3wallet_tutorial/src/screens/App.tsx
+ const [currentProposal, setCurrentProposal] = useState();
+ const [modalVisible, setModalVisible] = useState(false);
+ const [requestSession, setRequestSession] = useState();
+ const [requestEventData, setRequestEventData] = useState();
+ const [topic, setTopic] = useState();
 
+  // function connectWallet (sessionDetails){}
+  function testConnectWallet (sessionDetails){}
+  function connectWallet (sessionDetails){
+    if (wcV2Initialized) {
+      let uri = sessionDetails.uri;
+      let wcUriVersion = uri.substring(uri.indexOf("@") + 1 , uri.indexOf("@") + 2 );
+      switch (wcUriVersion) {
+        case "1" :
+          connectWalletV1(sessionDetails);
+          break;
+        case "2" :
+          connectWalletV2(sessionDetails);
+          break;
+        default: alert (`Wallet Cannect Error ${wcUriVersion} Vesrion not supported`)
+      }
+
+      console.log("wcUriVersion : ", wcUriVersion);
+    } else (alert("Wallet connect V2 not yet initialized pleaze wait and retry"));
+  }
+
+  async function connectWalletV2(sessionDetails) {
+   
+    web3wallet.on("session_proposal", onSessionProposal)
+
+    await web3wallet.core.pairing.pair({ uri: sessionDetails.uri })
+    web3wallet.on("session_request", async (event) => {
+      console.log("request : ", event)
+    })
+    web3wallet.on("auth_request", async (event) => {
+      console.log("auth request : ", event)
+    })
+}
+
+const onSessionProposal = useCallback( async (proposal) => {
+    console.log("proposal" , proposal)
+    setCurrentProposal(proposal);
+    const { id, params } = proposal;
+    const { requiredNamespaces, relays } = params;
+
+    if (proposal) {
+      const namespaces = {};
+      Object.keys(requiredNamespaces).forEach((key) => {
+        const accounts = [];
+        requiredNamespaces[key].chains.map((chain) => {
+          [address].map((acc) => accounts.push(`${chain}:${acc}`));
+        });
+
+        namespaces[key] = {
+          accounts,
+          methods: requiredNamespaces[key].methods,
+          events: requiredNamespaces[key].events,
+        };
+      });
+
+      await web3wallet.approveSession({
+        id,
+        relayProtocol: relays[0].protocol,
+        namespaces,
+      });
+
+      // setModalVisible(false);
+      // setCurrentWCURI("");
+      setCurrentProposal(undefined);
+      // setSuccessfulSession(true);
+    }
+  
+    
+  //   const session = await web3wallet.approveSession({
+  //     id: proposal.id,
+  //     namespaces,
+  // });
+  })
+
+  
+const onSessionRequest = useCallback(
+  async (requestEvent) => {
+    console.log("session request")
+    const { topic, params } = requestEvent;
+    const { request } = params;
+    
+    const requestSessionData =
+      web3wallet.engine.signClient.session.get(topic);
+    return;
+    // switch (request.method) {
+    //   case EIP155_SIGNING_METHODS.ETH_SIGN:
+    //   case EIP155_SIGNING_METHODS.PERSONAL_SIGN:
+    //     setRequestSession(requestSessionData);
+    //     setRequestEventData(requestEvent);
+    //     setSignModalVisible(true);
+    //     return;
+    // }
+  },
+  []
+);
+
+async function handleReject() {
+  const { id } = currentProposal;
+
+  if (currentProposal) {
+    await web3wallet.rejectSession({
+      id,
+      reason: getSdkError("USER_REJECTED_METHODS"),
+    });
+    setCurrentProposal(undefined);
+  }
+}
+
+// useEffect(() => {
+//   console.log("web3wallet : ", web3wallet)
+//   if(web3wallet) {
+   
+//   }
+// }, [
+//   connectWallet,
+//   // handleAccept,
+//   // handleReject,
+//   // currentETHAddress,
+//   // onSessionRequest,
+//   onSessionProposal,
+//   // successfulSession,
+// ]);
+
+ //**************************************************** */
+// wc:3197ca7ae0885e4fcd23cbba5261e2faa9d463fdf41c530a53e100f858961bf3@2?relay-protocol=irn&symKey=4122e53c7efa0704aebc965be0579333e231a50fa9456044b5962c602b2c31bf
+
+ //wc1 uri : wc:b4557b35-fa3e-44f4-abdb-1fcf0d050dbe@1?bridge=https%3A%2F%2Fd.bridge.walletconnect.org&key=a131967de4fa0a9271b1b97e4a5aeae01264f518cf4725a555d18e31d4b21685
+ //wc1 uri : wc:35b8b6c1-4c5e-4a4c-a37e-7aba50aa056d@1?bridge=https%3A%2F%2Fe.bridge.walletconnect.org&key=b7008ba52a615a9c5a9db9c00c2d6bf9aafb014504e947942699921a4921b731
+ // wc:5f0d053c-4b45-4c2b-820d-3ea074d7e357@1?bridge=https%3A%2F%2Fq.bridge.walletconnect.org&key=e6cbbf31375dd7c0080ee50e56f8b7f409098db7a183b782bc911adab6839fa3 
+ const connectWalletV1 = sessionDetails => {
+    console.log(" 📡 Connecting to Wallet Connect V1 version....", sessionDetails);
     let connector;
     try {
       connector = new WalletConnect(sessionDetails);
@@ -299,8 +446,8 @@ function App(props) {
         throw error;
       }
 
-      console.log("REQUEST PERMISSION TO:", payload, payload.params[0]);
-      // Handle Call Request
+    console.log("REQUEST PERMISSION TO:", payload, payload.params[0]);
+     // Handle Call Request
       //console.log("SETTING TO",payload.params[0].to)
 
       //setWalletConnectTx(true)
@@ -331,7 +478,7 @@ function App(props) {
       */
 
       //setWalletModalData({payload:payload,connector: connector})
-
+   
       // https://github.com/WalletConnect/walletconnect-test-wallet/blob/7b209c10f02014ed5644fc9991de94f9d96dcf9d/src/engines/ethereum.ts#L45-L104
       let title;
 
@@ -525,6 +672,9 @@ function App(props) {
         //CLEAR LOCAL STORAGE?!?
         console.log("clear local storage and connect...");
         localStorage.removeItem("walletconnect"); // lololol
+
+        //*-******************************************************** */
+        console.log("wallet connect url" , walletConnectUrl)
         connectWallet(
           {
             // Required
@@ -1169,6 +1319,7 @@ function App(props) {
 */}
 
       <div style={{ padding: 16, backgroundColor: "#FFFFFF", width: 420, margin: "auto" }}>
+   
         <TransactionResponses
           provider={userProvider}
           signer={userProvider.getSigner()}
@@ -1249,7 +1400,20 @@ function App(props) {
             🗑
           </span>
         ) : (
-          ""
+          <>
+          <Button onClick={() => testConnectWallet( {
+            // Required
+            uri: walletConnectUrl,
+            // Required
+            clientMeta: {
+              description: "Forkable web wallet for small/quick transactions.",
+              url: "https://punkwallet.io",
+              icons: ["https://punkwallet.io/punk.png"],
+              name: "🧑‍🎤 PunkWallet.io",
+            },
+          } )}>Test Connection</Button>
+          <Button onClick={() => ""}>Disco</Button>
+          </>
         )}
         <IFrame address={address} userProvider={userProvider} mainnetProvider={mainnetProvider} />
       </div>

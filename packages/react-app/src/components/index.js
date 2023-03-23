@@ -23,3 +23,4 @@ export { default as TransactionResponses } from "./TransactionResponses";
 export { default as Wallet } from "./Wallet";
 export { default as WalletImport } from "./WalletImport";
 export { default as WalletConnectTransactionDisplay } from "./WalletConnectTransactionDisplay";
+export { default as SignModal } from "./SignModal";

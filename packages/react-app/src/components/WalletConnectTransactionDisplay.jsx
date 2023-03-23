@@ -1,13 +1,12 @@
 import { Divider, Spin } from "antd";
 import React, { useEffect, useState } from "react";
-import { convertHexToNumber, convertHexToUtf8 } from "@walletconnect/utils";
 import axios from "axios";
 
 const { BigNumber, ethers } = require("ethers");
 
 const convertHexToUtf8IfPossible = (hex) => {
   try {
-    return convertHexToUtf8(hex);
+    return ethers.utils.convertHexToUtf8(hex);
   } catch (e) {
     return hex;
   }
@@ -161,11 +160,11 @@ try {
     }
 
     if (key == "gasPrice") {
-      return ethers.utils.formatUnits(convertHexToNumber(value).toString(), 9).toString() + " gwei"
+      return ethers.utils.formatUnits(ethers.utils.convertHexToNumber(value).toString(), 9).toString() + " gwei"
     }
 
     if ((key == "nonce") || (key == "gas") || (key == "gasPrice")) {
-      return convertHexToNumber(value);
+      return ethers.utils.convertHexToNumber(value);
     }
 
     if (key == "to") {
