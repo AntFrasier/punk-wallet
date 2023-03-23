@@ -1,5 +1,13 @@
 # 🏗 scaffold-eth - 🧑‍🎤 [PunkWallet.io](https://PunkWallet.io)
 
+## PR Modif:
+Replaced Wallet connect V1 bye V2
+
+You must create an app ID here https://cloud.walletconnect.com/sign-in
+
+Then copy the id in an .env file like .sample.env file
+
+
 > An open source Ethereum web wallet.
 
 🎥 [watch this 10m demo](https://youtu.be/lYRd1k1RBAQ)
