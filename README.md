@@ -1,5 +1,16 @@
 # 🏗 scaffold-eth - 🧑‍🎤 [PunkWallet.io](https://PunkWallet.io)
 
+There's a weird error with WC2 and babel-loader node module, 
+to fix it make sure to modify react/package.json 
+
+ "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not op_mini all"
+  ],
+
+If you have an other solution please let me know 
+
 ## PR Modif:
 Replaced Wallet connect V1 bye V2
 
