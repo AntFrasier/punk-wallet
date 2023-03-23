@@ -27,18 +27,14 @@ import {
 import { INFURA_ID, NETWORK, NETWORKS } from "./constants";
 import { Transactor } from "./helpers";
 import { useBalance, useExchangePrice, useGasPrice, useLocalStorage, usePoller, useUserProvider } from "./hooks";
-
 import WalletConnect from "@walletconnect/client"; 
-
 import { TransactionManager } from "./helpers/TransactionManager";
-
-
 
 //************************** */
 
 import useInitialization, { web3wallet, web3WalletPair } from "./hooks/WalletConnectV2Utils";
 import { getSdkError } from "@walletconnect/utils";
-import { indexOf } from "./contracts/contracts";
+
 //************************** */
 
 const { confirm } = Modal;
@@ -252,7 +248,9 @@ function App(props) {
  const [sessionTopic, setSessionTopic] = useState();
  const [wcVersion, setWcVersion] = useState("")
 
-  //redirect to V1 Or V2 
+//redirect to V1 Or V2 
+// wc2 uri : wc:3197ca7ae0885e4fcd23cbba5261e2faa9d463fdf41c530a53e100f858961bf3@2?relay-protocol=irn&symKey=4122e53c7efa0704aebc965be0579333e231a50fa9456044b5962c602b2c31bf
+// wc1 uri : wc:b4557b35-fa3e-44f4-abdb-1fcf0d050dbe@1?bridge=https%3A%2F%2Fd.bridge.walletconnect.org&key=a131967de4fa0a9271b1b97e4a5aeae01264f518cf4725a555d18e31d4b21685
   function connectWallet (sessionDetails){
     if (wcV2Initialized) {
       let uri = sessionDetails.uri;
@@ -293,93 +291,86 @@ function App(props) {
     web3wallet.on('session_update', data => console.log('update', data))
     web3wallet.on('session_delete', data => console.log('delete', data))
     // web3wallet.onSessionDelete()
-}
+  }
 
-const onSessionDelete = useCallback( async (data) => {
- 
-  console.log("disconnect from WC V2");
-  localStorage.removeItem("walletConnectUrl");
-  localStorage.removeItem("wallectConnectConnectorSession");
-
-  setTimeout(() => {
-    window.location.reload();
-  }, 1);
-    // setWallectConnectConnector(web3wallet)
+  const onSessionDelete = useCallback( async (data) => {
+    console.log("disconnect from WC V2");
+    localStorage.removeItem("walletConnectUrl");
+    localStorage.removeItem("wallectConnectConnectorSession");
+    setTimeout(() => {
+      window.location.reload();
+    }, 1);
   }, [])
 
-const onSessionProposal = useCallback( async (proposal) => {
-    console.log("proposal" , proposal)
-    setCurrentProposal(proposal);
-    const { id, params } = proposal;
-    const { requiredNamespaces, relays } = params;
-    const { metadata } = params.proposer;
-    if (metadata) {
-        setWalletConnectPeerMeta(metadata);
-    }
-    setPairTopic(params.pairingTopic);
+  const onSessionProposal = useCallback( async (proposal) => {
+      console.log("proposal" , proposal)
+      setCurrentProposal(proposal);
+      const { id, params } = proposal;
+      const { requiredNamespaces, relays } = params;
+      const { metadata } = params.proposer;
+      if (metadata) {
+          setWalletConnectPeerMeta(metadata);
+      }
+      setPairTopic(params.pairingTopic);
 
-    if (proposal) {
-      const namespaces = {};
-      Object.keys(requiredNamespaces).forEach((key) => {
-        const accounts = [];
-        requiredNamespaces[key].chains.map((chain) => {
-          [address].map((acc) => accounts.push(`${chain}:${acc}`));
+      if (proposal) {
+        const namespaces = {};
+        Object.keys(requiredNamespaces).forEach((key) => {
+          const accounts = [];
+          requiredNamespaces[key].chains.map((chain) => {
+            [address].map((acc) => accounts.push(`${chain}:${acc}`));
+          });
+
+          namespaces[key] = {
+            accounts,
+            methods: requiredNamespaces[key].methods,
+            events: requiredNamespaces[key].events,
+          };
         });
 
-        namespaces[key] = {
-          accounts,
-          methods: requiredNamespaces[key].methods,
-          events: requiredNamespaces[key].events,
-        };
-      });
-
-      const session = await web3wallet.approveSession({
-        id,
-        relayProtocol: relays[0].protocol,
-        namespaces,
-      });
-      console.log( "session",session)
-      setSessionTopic(session.topic)
-      setCurrentProposal(undefined);
-      // setWalletConnectUrl("");
-      setWalletConnectConnected(true);
-      setWallectConnectConnector(web3wallet)
-      setWallectConnectConnectorSession(session)
-    }
-  
+        const session = await web3wallet.approveSession({
+          id,
+          relayProtocol: relays[0].protocol,
+          namespaces,
+        });
+        console.log( "session",session)
+        setSessionTopic(session.topic)
+        setCurrentProposal(undefined);
+        // setWalletConnectUrl("");
+        setWalletConnectConnected(true);
+        setWallectConnectConnector(web3wallet)
+        setWallectConnectConnectorSession(session)
+      }
     
-  //   const session = await web3wallet.approveSession({
-  //     id: proposal.id,
-  //     namespaces,
-  // });
+      
+    //   const session = await web3wallet.approveSession({
+    //     id: proposal.id,
+    //     namespaces,
+    // });
   })
   
-const onSessionRequest = useCallback(
-  async (requestEvent) => {
-    console.log("session request", requestEvent)
-    const { topic, params } = requestEvent;
-    const { request } = params;
-    
-    const requestSessionData =
-      web3wallet.engine.signClient.session.get(topic);
+  const onSessionRequest = useCallback(
+    async (requestEvent) => {
+      console.log("session request", requestEvent)
+      const { topic, params } = requestEvent;
+      const { request } = params;
+      
+      const requestSessionData =
+        web3wallet.engine.signClient.session.get(topic);
 
-    console.log("requestSessionData : ",requestSessionData)
-    return;
-    // switch (request.method) {
-    //   case EIP155_SIGNING_METHODS.ETH_SIGN:
-    //   case EIP155_SIGNING_METHODS.PERSONAL_SIGN:
-    //     setRequestSession(requestSessionData);
-    //     setRequestEventData(requestEvent);
-    //     setSignModalVisible(true);
-    //     return;
-    // }
-  },
-  []
-);
-
- //**************************************************** */
-// wc2 uri : wc:3197ca7ae0885e4fcd23cbba5261e2faa9d463fdf41c530a53e100f858961bf3@2?relay-protocol=irn&symKey=4122e53c7efa0704aebc965be0579333e231a50fa9456044b5962c602b2c31bf
-// wc1 uri : wc:b4557b35-fa3e-44f4-abdb-1fcf0d050dbe@1?bridge=https%3A%2F%2Fd.bridge.walletconnect.org&key=a131967de4fa0a9271b1b97e4a5aeae01264f518cf4725a555d18e31d4b21685
+      console.log("requestSessionData : ",requestSessionData)
+      return;
+      // switch (request.method) {
+      //   case EIP155_SIGNING_METHODS.ETH_SIGN:
+      //   case EIP155_SIGNING_METHODS.PERSONAL_SIGN:
+      //     setRequestSession(requestSessionData);
+      //     setRequestEventData(requestEvent);
+      //     setSignModalVisible(true);
+      //     return;
+      // }
+    },
+    []
+  );
 
  const connectWalletV1 = sessionDetails => {
     console.log(" 📡 Connecting to Wallet Connect V1 version....", sessionDetails);
