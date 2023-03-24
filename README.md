@@ -11,6 +11,10 @@ to fix it make sure to modify react/package.json
 
 If you have an other solution please let me know 
 
+
+Dapp to test WC2 conection : 
+sign : https://react-app.walletconnect.com/
+auth : https://react-auth-dapp.vercel.app/
 ## PR Modif:
 Replaced Wallet connect V1 bye V2
 
