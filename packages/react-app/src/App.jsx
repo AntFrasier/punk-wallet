@@ -180,6 +180,7 @@ function App(props) {
   const mainnetProvider = scaffoldEthProvider; //scaffoldEthProvider && scaffoldEthProvider._network ?  : mainnetInfura;
 
   const [injectedProvider, setInjectedProvider] = useState();
+ 
 
   const logoutOfWeb3Modal = async () => {
     await web3Modal.clearCachedProvider();
@@ -274,15 +275,24 @@ function App(props) {
   }
 
   async function connectWalletV2(sessionDetails) {
-   
-    web3wallet.on("session_proposal", onSessionProposal);
+   //todo check if uri allready pair
+   let localPairings = JSON.parse(localStorage.getItem("wc@2:core:0.3//pairing"));
+   console.log("localPairings ",localPairings)
+   console.log("there is a pair ", localPairings?.length)
+   //for now removing all existing paired conection defior starting a new one)
+    if (localPairings?.length > 0){
+      console.log("there is a pair ", localPairings.length)
+      console.log("localPairings" ,localPairings)
+      await web3wallet.core.pairing.disconnect({topic: localPairings[0].topic})
+    }
     await web3wallet.core.pairing.pair({ uri: sessionDetails.uri });
+    web3wallet.on("session_proposal", onSessionProposal);
+
+    
 
     web3wallet.on("session_request", onSessionRequest);
   
-    web3wallet.on("auth_request", async (event) => {
-      console.log("auth request : ", event)
-    })
+    web3wallet.on("auth_request", onAuthRequest)
     web3wallet.on('session_delete', onSessionDelete)
 
     web3wallet.on('session_ping', data => console.log('ping', data))
@@ -292,6 +302,40 @@ function App(props) {
     web3wallet.on('session_delete', data => console.log('delete', data))
     // web3wallet.onSessionDelete()
   }
+
+  const onAuthRequest = useCallback( async (event) => {
+    console.log("auth request :", event);
+    let signer = await userProvider.getSigner()
+    let signerAddress = await signer.getAddress();
+    const { metadata } = event.params.requester;
+      if (metadata) {
+          setWalletConnectPeerMeta(metadata);
+      }
+
+    let iss = `did:pkh:eip155:1:${signerAddress}`;
+    const message = await web3wallet.formatMessage(event.params.cacaoPayload, iss);
+    // prompt the user to sign the message
+    
+    const signature = await signer.signMessage(message);
+    //respond
+    console.log("signature : ",signature)
+    await web3wallet.respondAuthRequest(
+      {
+        id: event.id,
+        signature: {
+          s: signature,
+          t: "eip191",
+        },
+      },
+      iss,
+    );
+    // console.log(session)
+    setPairTopic(event.topic);
+    setSessionTopic(event.topic)
+    setWalletConnectConnected(true);
+    setWallectConnectConnector(web3wallet)
+    // setWallectConnectConnectorSession(session)
+  },[])
 
   const onSessionDelete = useCallback( async (data) => {
     console.log("disconnect from WC V2");
@@ -1417,7 +1461,7 @@ function App(props) {
                         topic: sessionTopic,
                         reason: getSdkError("USER_DISCONNECTED"),
                       });
-                      await web3wallet.core.pairing.disconnect({ topic: pairTopic });
+                      //await web3wallet.core.pairing.disconnect({ topic: pairTopic });
                       setWalletConnectConnected(false);
                       // setWallectConnectConnector(undefined);
                       setWallectConnectConnector(undefined)
